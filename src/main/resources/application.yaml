@@ -1,0 +1,7 @@
+application:
+  aws-region: sa-east-1
+  dynamo:
+    tables:
+      names: User
+  localstack: true
+
