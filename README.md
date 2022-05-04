@@ -28,7 +28,7 @@ Nesse [repositório](https://github.com/marcusvoltolim/localstack-aws) está exp
 Para quem conhece o *SpringJPA* já está familiarizado com o uso de anotações para mapear tabela(s) e coluna(s) em objeto/entidade e campos/atributos.
 A implementção está seguindo o padrão MVC, estão temos Controller, Service, Repository, Model.
 
-**As classes mapeadas precisam ser Java (.java), pois devido às particularidades do Groovy (leia-se MetaClass) não funciona.**
+**As classes mapeadas precisam ser Java (.java), pois devido às particularidades do Groovy (leia-se MetaClass) não funciona.** [issue](https://github.com/aws/aws-sdk-java-v2/issues/2347)
 
 Iremos usar o cliente **DynamoDbEnhancedClient** e as seguintes anotações:
 
