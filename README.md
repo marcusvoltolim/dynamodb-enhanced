@@ -28,7 +28,7 @@ Nesse [repositório](https://github.com/marcusvoltolim/localstack-aws) está exp
 Para quem conhece o *SpringJPA* já está familiarizado com o uso de anotações para mapear tabela(s) e coluna(s) em objeto/entidade e campos/atributos.
 A implementção está seguindo o padrão MVC, estão temos Controller, Service, Repository, Model.
 
-**As classes mapeadas precisam ser Java (.java), pois devido às particularidades do Groovy (leia-se MetaClass) não funciona.** [issue](https://github.com/aws/aws-sdk-java-v2/issues/2347)
+**As classes mapeadas precisam ser Java (.java), pois devido às particularidades do Groovy (leia-se MetaClass) não funciona.**
 
 Iremos usar o cliente **DynamoDbEnhancedClient** e as seguintes anotações:
 
@@ -37,7 +37,7 @@ Iremos usar o cliente **DynamoDbEnhancedClient** e as seguintes anotações:
 * `@DynamoDbSortKey` *[opcional] [método]*: Indica que o atributo anotado é a chave de classificação primária (sortKey) opcional da tabela DynamoDb;
 * `@DynamoDbAttribute(String value)` *[opcional] [método]*: Especifica um nome diferente para o atributo do que o mapeador inferiria automaticamente usando uma estratégia de
   nomenclatura;
-  * Por exemplo: se temos uma tabela com o campo `dtNasc` e queremos mapear na entidade para `dataNascimento` anotamos com `@DynamoDbAttribute('dtNasc')`;
+  * Por exemplo: se temos na tabela a coluna `dtNasc` e queremos mapear na entidade para `dataNascimento` anotamos com `@DynamoDbAttribute('dtNasc')`;
 * `@DynamoDbConvertedBy` *[opcional] [método]*: Usada para associar um *AttributeConverter* personalizado ao atributo;
 * `@DynamoDbIgnore` *[opcional] [método]*: Indica que o atributo será ignorado pelo mapeador, ou seja, não participa do schema da tabela;
 * As anotações de nível de método não podem ser usadas no atributo/campo diretamente, sendo assim,
@@ -46,6 +46,87 @@ Iremos usar o cliente **DynamoDbEnhancedClient** e as seguintes anotações:
 * As anotações: `@DynamoDbPartitionKey, @DynamoDbSortKey`  só podem ser usadas em atributos com um tipo escalar do DynamoDb (string, número ou binário);
 * Existem outras anotações que podem ser vistas no pacote `software.amazon.awssdk.enhanced.dynamodb.mapper.annotations`;
 * Para instanciar o *DynamoDbEnhancedClient* temos que passar o *DynamoDbClient* como parâmetro, ou seja, debaixo dos panos ele usa o cliente "tradicional".
+
+Podemos ter classes mapeadas que contém campos que referenciam outra classe mapeada, no exemplo do projeto temos [`User`](src/main/groovy/io/marcusvoltolim/dynamodbenhanced/models/User.java) que contém uma lista  de [`Address`](src/main/groovy/io/marcusvoltolim/dynamodbenhanced/models/Address.java), como podemos ver no trecho de código abaixo:
+
+```java
+@Getter
+@Setter
+@DynamoDbBean
+public class User {
+
+  private String id;
+  private AuthorityType authority;
+  private String name;
+  private String email;
+  private List<Address> addresses;
+
+  @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+  private Instant regDate;
+
+  @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+  private Instant updatedDate;
+
+  @DynamoDbPartitionKey
+  public String getId() {
+    return id;
+  }
+
+  @DynamoDbSortKey
+  @DynamoDbAttribute("authorityLevel")
+  public AuthorityType getAuthority() {
+    return authority;
+  }
+
+}
+```
+```java
+@Getter
+@Setter
+@DynamoDbBean
+public class Address {
+
+  private AddressType type;
+  private String street;
+  private String number;
+  private String zipCode;
+  private String state;
+  private String city;
+  private String country;
+
+}
+```
+Esse mapeamento resulta no JSON abaixo:
+```json
+{
+  "name": "Marcus Voltolim",
+  "regDate": "2022-05-04T15:53:54.362646Z",
+  "addresses": [
+    {
+      "country": "Brasil",
+      "number": "123",
+      "zipCode": "10000-000",
+      "city": "São Paulo",
+      "street": "Rua 1",
+      "state": "SP",
+      "type": "PERSONAL"
+    },
+    {
+      "country": "Brasil",
+      "number": "1050",
+      "zipCode": "99999-999",
+      "city": "Rio Branco",
+      "street": "Rua 2",
+      "state": "AC",
+      "type": "BUSINESS"
+    }
+  ],
+  "authorityLevel": "USER",
+  "id": "1",
+  "email": "email@gmail.com"
+}
+```
+
 ## Executando
 
 ### LocalStack - docker-compose
@@ -70,7 +151,7 @@ Iremos usar o cliente **DynamoDbEnhancedClient** e as seguintes anotações:
 No [UserController](src/main/groovy/io/marcusvoltolim/dynamodbenhanced/controllers/UserController.groovy) temos os seguintes endpoints:
 
 * Criar novo usuário:
-  ```
+  ```curl
   curl --location --request POST 'http://localhost:8080/user' \
   --header 'Content-Type: application/json' \
   --data-raw '{

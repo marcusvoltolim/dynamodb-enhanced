@@ -21,6 +21,7 @@ public class User {
     private String name;
     private String email;
     private List<Address> addresses;
+
     @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private Instant regDate;
 
