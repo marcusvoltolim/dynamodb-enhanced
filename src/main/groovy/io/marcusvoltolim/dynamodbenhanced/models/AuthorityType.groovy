@@ -1,7 +1,7 @@
 package io.marcusvoltolim.dynamodbenhanced.models
 
-enum AddressType {
-    PERSONAL,
-    BUSINESS
-
+enum AuthorityType {
+    ADMIN,
+    CLIENT,
+    USER
 }

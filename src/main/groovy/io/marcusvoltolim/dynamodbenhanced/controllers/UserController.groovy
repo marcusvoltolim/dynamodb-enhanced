@@ -1,14 +1,19 @@
 package io.marcusvoltolim.dynamodbenhanced.controllers
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import io.marcusvoltolim.dynamodbenhanced.UserCreationDto
+import io.marcusvoltolim.dynamodbenhanced.UserUpdateDto
+import io.marcusvoltolim.dynamodbenhanced.exceptions.UserAbsentException
+import io.marcusvoltolim.dynamodbenhanced.exceptions.UserAlreadyExistsException
+import io.marcusvoltolim.dynamodbenhanced.models.AuthorityType
 import io.marcusvoltolim.dynamodbenhanced.models.User
 import io.marcusvoltolim.dynamodbenhanced.services.UserService
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
+import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
-import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
@@ -21,37 +26,52 @@ import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE
 class UserController {
 
     private final UserService service
-    private final ObjectMapper objectMapper
+    private final ObjectMapper mapper
 
-    UserController(UserService service, ObjectMapper objectMapper) {
+    UserController(UserService service, ObjectMapper mapper) {
         this.service = service
-        this.objectMapper = objectMapper
+        this.mapper = mapper
+    }
+
+    @GetMapping(path = '{id}', produces = APPLICATION_JSON_VALUE)
+    ResponseEntity getById(@PathVariable String id, @RequestParam AuthorityType authority) {
+        service.getById(id, authority).with { ResponseEntity.of(it) }
     }
 
     @GetMapping(produces = APPLICATION_JSON_VALUE)
-    ResponseEntity<User> getById(@RequestParam String id, @RequestParam(required = false) Boolean primaryAccount) {
-        ResponseEntity.of(service.getById(id, primaryAccount))
+    ResponseEntity<List<User>> getAll() {
+        service.all.with { ResponseEntity.of(it) }
     }
 
     @PostMapping(consumes = APPLICATION_JSON_VALUE, produces = APPLICATION_JSON_VALUE)
-    ResponseEntity create(@RequestBody String json) {
-        service.create(objectMapper.readValue(json, User))
-        ResponseEntity.created(null).build()
-    }
-
-    @PutMapping(consumes = APPLICATION_JSON_VALUE, produces = APPLICATION_JSON_VALUE)
-    ResponseEntity<User> update(@RequestBody String json) {
-        ResponseEntity.ok(service.update(objectMapper.readValue(json, User)))
+    ResponseEntity create(@RequestBody User user) {
+        try {
+            service.create(user).with { convertUserResponse(it, UserCreationDto) }
+        } catch (UserAlreadyExistsException ignored) {
+            ResponseEntity.badRequest().body([
+                error_message: 'User already created! Try update it...',
+                user_details : [id: user.id, authority: user.authority]])
+        }
     }
 
     @PatchMapping(consumes = APPLICATION_JSON_VALUE, produces = APPLICATION_JSON_VALUE)
-    ResponseEntity<User> updatePartial(@RequestBody String json) {
-        ResponseEntity.ok(service.updatePartial(objectMapper.readValue(json, User)))
+    ResponseEntity updatePartial(@RequestBody User user) {
+        try {
+            service.update(user).with { convertUserResponse(it, UserUpdateDto) }
+        } catch (UserAbsentException ignored) {
+            ResponseEntity.badRequest().body([
+                error_message: 'User absent! Try creating it first...',
+                user_details : [id: user.id, authority: user.authority]])
+        }
     }
 
-    @DeleteMapping(produces = APPLICATION_JSON_VALUE)
-    ResponseEntity<User> delete(@RequestParam String id, @RequestParam Boolean primaryAccount) {
-        ResponseEntity.ok(service.delete(id, primaryAccount))
+    @DeleteMapping(path = '{id}', produces = APPLICATION_JSON_VALUE)
+    ResponseEntity delete(@PathVariable String id, @RequestParam AuthorityType authority) {
+        service.delete(id, authority).with { ResponseEntity.of(it) }
+    }
+
+    private ResponseEntity<UserCreationDto> convertUserResponse(User user, Class<UserCreationDto> type) {
+        ResponseEntity.ok(mapper.convertValue(user, type))
     }
 
 }

@@ -1,81 +1,42 @@
 package io.marcusvoltolim.dynamodbenhanced.services
 
+import io.marcusvoltolim.dynamodbenhanced.models.AuthorityType
 import io.marcusvoltolim.dynamodbenhanced.models.User
+import io.marcusvoltolim.dynamodbenhanced.repositories.UserRepository
 import org.springframework.stereotype.Service
-import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient
-import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable
-import software.amazon.awssdk.enhanced.dynamodb.Expression
 import software.amazon.awssdk.enhanced.dynamodb.Key
-import software.amazon.awssdk.enhanced.dynamodb.TableSchema
-import software.amazon.awssdk.enhanced.dynamodb.model.UpdateItemEnhancedRequest
 
 @Service
 class UserService {
 
-    private final DynamoDbTable<User> table
+    private final UserRepository repository
 
-    UserService(DynamoDbEnhancedClient client) {
-        table = client.table(User.simpleName, TableSchema.fromBean(User))
+    UserService(UserRepository repository) {
+        this.repository = repository
     }
 
-    Optional<User> getById(String id, Boolean primaryAccount) {
-        Optional.ofNullable(table.getItem(buildKey(id, primaryAccount)))
+    Optional<User> getById(String id, AuthorityType authority) {
+        repository.getById(buildKey(id, authority))
     }
 
-    private static Key buildKey(String id, Boolean primaryAccount) {
-        Key.builder().with {
-            if (primaryAccount != null) {
-                sortValue(primaryAccount.toString())
-            }
-            partitionValue(id).build()
-        }
+    Optional<List<User>> getAll() {
+        repository.all
     }
 
-    User getById2(String id, Boolean primaryAccount) { //alternative
-        table.getItem(new User(id: id, primaryAccount: primaryAccount))
-    }
-
-    List<User> getAll(Map<String, String> filters) {
-        table.scan {
-            if (filters) {
-                it.filterExpression(buildExpression(filters))
-            }
-        }.items().asList()
-    }
-
-    private static Expression buildExpression(Map<String, String> filters) {
-        Expression.Builder builder = Expression.builder()
-        String where = ''
-        filters.each {
-            builder.putExpressionName(it.key, it.value)
-            builder.putExpressionName(it.key, it.value)
-            where += "${it.key} = ${it.value}"
-        }
-        builder.build()
-    }
-
-    void create(User user) {
-        table.putItem(user)
+    User create(User user) {
+        repository.create(user)
     }
 
     User update(User user) {
-        table.updateItem(user)
+        repository.update(user)
     }
 
-    User update2(User user) {//alternative
-        table.updateItem(UpdateItemEnhancedRequest.builder().item(user).build())
+    Optional<User> delete(String id, AuthorityType authority) {
+        repository.delete(buildKey(id, authority))
     }
 
-    User updatePartial(User user) {
-        table.updateItem { it.item(user).ignoreNulls(true) }
-    }
-
-    User delete(String id, Boolean primaryAccount) {
-        table.deleteItem(buildKey(id, primaryAccount))
-    }
-
-    User delete2(String id, Boolean primaryAccount) {//alternative
-        table.deleteItem(new User(id: id, primaryAccount: primaryAccount))
+    private static Key buildKey(String id, AuthorityType authority) {
+        Key.builder().partitionValue(id).sortValue(authority.name()).build()
     }
 
 }
